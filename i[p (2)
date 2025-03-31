@@ -1,0 +1,32 @@
+import requests
+
+def get_ip_location(ip_address):
+    try:
+        # You can use an IP geolocation service like ipinfo.io
+        response = requests.get(f"https://ipinfo.io/{ip_address}/json")
+        
+        # Check if the request was successful
+        if response.status_code == 200:
+            data = response.json()
+            location_info = {
+                "IP": data.get("ip"),
+                "City": data.get("city"),
+                "Region": data.get("region"),
+                "Country": data.get("country"),
+                "Location": data.get("loc"),  # Latitude and Longitude
+                "ISP": data.get("org"),
+                "Timezone": data.get("timezone")
+     
+    
+            }
+            return location_info
+        else:
+            return f"Failed to get location data. Status Code: {response.status_code}"
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+# Replace '81.136.34.148' with the IP address you want to locate
+ip_address = '81.136.34.148'
+location = get_ip_location(ip_address)
+
+print(location)

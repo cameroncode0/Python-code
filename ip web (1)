@@ -1,0 +1,57 @@
+import requests
+import socket
+import re
+
+def get_public_ip():
+    try:
+        # Get the public IP address from an external service
+        response = requests.get('https://api.ipify.org?format=json')
+        ip = response.json().get('ip')
+        return ip
+    except requests.RequestException as e:
+        return f"Error getting public IP: {e}"
+
+def validate_ip(ip_address):
+    # Regular expressions for validating IPv4 and IPv6 addresses
+    ipv4_pattern = re.compile(r'^(\d{1,3}\.){3}\d{1,3}$')
+    ipv6_pattern = re.compile(r'([a-fA-F0-9:]+:+)+[a-fA-F0-9]+')
+    
+    if ipv4_pattern.match(ip_address):
+        return "Valid IPv4 address"
+    elif ipv6_pattern.match(ip_address):
+        return "Valid IPv6 address"
+    else:
+        return "Invalid IP address"
+
+def get_ip_geolocation(ip_address):
+    try:
+        # Get geolocation data from a public API
+        response = requests.get(f'https://ipapi.co/{ip_address}/json/')
+        data = response.json()
+        
+        if 'error' in data:
+            return "Could not find location data for this IP."
+        
+        # Return basic geolocation details
+        return {
+            'IP': data.get('ip'),
+            'City': data.get('city'),
+            'Region': data.get('region'),
+            'Country': data.get('country_name'),
+            'Latitude': data.get('latitude'),
+            'Longitude': data.get('longitude')
+        }
+    except requests.RequestException as e:
+        return f"Error getting geolocation: {e}"
+
+if __name__ == "__main__":
+    print("IP Checker Tool")
+    
+    # Get and print public IP address
+    public_ip = get_public_ip()
+    print(f"Your Public IP: {public_ip}")
+    
+    # Validate an IP address
+    ip_to_validate = input("Enter an IP address to validate: ")
+    validation_result = validate_ip
+    

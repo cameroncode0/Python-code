@@ -1,0 +1,38 @@
+import requests # type: ignore
+import requests # type: ignore
+
+def is_valid_ip(ip):
+    # Regular expression for validating an IP address
+    ip_pattern = r'^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$'
+    return re.match(ip_pattern, ip) is not None
+
+def get_ip_location(ip_address=None):
+    # Use the public IP if no address is provided
+    url = f"https://ipinfo.io/{ip_address}/json" if ip_address else "https://ipinfo.io/json"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Check for request errors
+        return response.json()  # Return JSON response
+    except requests.RequestException as e:
+        print(f"Error: {e}")
+        return None
+
+if __name__ == "__main__":
+    ip_address = input("Enter an IP address (or leave blank for your public IP): ").strip() or None
+
+    # Validate IP address if provided
+    if ip_address and not is_valid_ip(ip_address):
+        print("Invalid IP address format.")
+    else:
+        location_info = get_ip_location(ip_address)
+
+        if location_info:
+            print("\nIP Location Information:")
+            print(f"IP: {location_info.get('ip')}")
+            print(f"City: {location_info.get('city')}")
+            print(f"Region: {location_info.get('region')}")
+            print(f"Country: {location_info.get('country')}")
+            print(f"Location: {location_info.get('loc')}")
+            print(f"Organization: {location_info.get('org')}")
+        else:
+            print("No information available.")

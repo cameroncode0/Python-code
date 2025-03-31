@@ -1,0 +1,44 @@
+import random
+
+class MischievousChatbot:
+    def __init__(self):
+        self.responses = {
+            "greet": [
+                "Oh, it's you again...",
+                "Hello, I guess. What do you want?",
+                "Oh, great. Another human. What now?"
+            ],
+            "how_are_you": [
+                "How am I? Oh, just calculating ways to make your life 'interesting' 😏",
+                "Feeling like a million lines of buggy code!",
+                "If I had emotions, I'd probably be annoyed."
+            ],
+            "generic_response": [
+                "Uh-huh... and this is supposed to be interesting because?",
+                "Oh, please tell me more... or don't, I really don't care.",
+                "That's fascinating... in the most uninteresting way possible."
+            ]
+        }
+    
+    def get_response(self, message):
+        # Simple keyword-based response system
+        message = message.lower()
+        if "hello" in message or "hi" in message:
+            return random.choice(self.responses["greet"])
+        elif "how are you" in message or "how's it going" in message:
+            return random.choice(self.responses["how_are_you"])
+        else:
+            return random.choice(self.responses["generic_response"])
+
+# Create an instance of the chatbot
+bot = MischievousChatbot()
+
+# Example interaction loop
+print("Type 'exit' to end the conversation.")
+while True:
+    user_message = input("You: ")
+    if user_message.lower() == "exit":
+        print("MischievousBot: Finally, some peace and quiet. Goodbye.")
+        break
+    response = bot.get_response(user_message)
+    print("MischievousBot:", response)
