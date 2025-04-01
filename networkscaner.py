@@ -1,258 +1,253 @@
-import scapy.all as scapy
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
+import subprocess
 import socket
-import os
 import re
-import csv
-import requests
-
-# Function to detect the local network range
-def get_local_network():
-    try:
-        if os.name == "nt":  # Windows
-            output = os.popen("ipconfig").read()
-            match = re.search(r"IPv4 Address[^\d]*(\d+\.\d+\.\d+)\.\d+", output)
-        else:  # Mac/Linux
-            output = os.popen("ifconfig" if os.system("ifconfig > /dev/null 2>&1") == 0 else "ip -4 addr").read()
-            match = re.search(r"inet (\d+\.\d+\.\d+)\.\d+", output)
-
-        if match:
-            return f"{match.group(1)}.1/24"  # Construct network range
-    except Exception as e:
-        print(f"ERROR: {e}")
-        return None
-    return None
-
-# Function to get manufacturer details from MAC address
-def get_mac_vendor(mac_address):
-    try:
-        url = f"https://api.macvendors.com/{mac_address}"
-        response = requests.get(url, timeout=3)
-        if response.status_code == 200:
-            return response.text
-    except:
-        pass
-    return "Unknown"
-
-# Function to scan the network
-def scan(ip_range):
-    devices = []
-    try:
-        arp_request = scapy.ARP(pdst=ip_range)
-        broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-        arp_request_broadcast = broadcast / arp_request
-        answered_list = scapy.srp(arp_request_broadcast, timeout=2, verbose=False)[0]
-
-        for sent, received in answered_list:
-            try:
-                hostname = socket.gethostbyaddr(received.psrc)[0]  # Get device name
-            except socket.herror:
-                hostname = "Unknown"
-
-            vendor = get_mac_vendor(received.hwsrc)  # Get manufacturer
-            devices.append({"IP": received.psrc, "MAC": received.hwsrc, "Name": hostname, "Vendor": vendor})
-    except Exception as e:
-        print(f"ERROR: Failed to scan network. {e}")
-    return devices
-
-# Function to display the results in GUI
-def display_results():
-    network = get_local_network()
-    if not network:
-        status_label.config(text="ERROR: Network not detected!", fg="red")
-        return
-
-    status_label.config(text=f"Scanning {network} ...", fg="blue")
-    root.update()
-
-    results = scan(network)
-
-    for item in tree.get_children():
-        tree.delete(item)
-
-    if not results:
-        status_label.config(text="No devices found!", fg="red")
-        return
-
-    for device in results:
-        tree.insert("", "end", values=(device["IP"], device["MAC"], device["Name"], device["Vendor"]))
-
-    status_label.config(text="Scan Complete!", fg="green")
-
-# Function to export results to CSV
-def export_to_csv():
-    results = []
-    for item in tree.get_children():
-        results.append(tree.item(item)["values"])
-
-    if not results:
-        messagebox.showwarning("No Data", "No scan results to save!")
-        return
-
-    with open("network_scan_results.csv", "w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["IP Address", "MAC Address", "Device Name", "Vendor"])
-        writer.writerows(results)
-
-    messagebox.showinfo("Export Successful", "Scan results saved to 'network_scan_results.csv'!")
-
-# GUI Setup
-root = tk.Tk()
-root.title("Advanced Network Scanner")
-root.geometry("600x400")
-
-frame = tk.Frame(root)
-frame.pack(pady=10)
-
-scan_button = tk.Button(frame, text="Scan My Network", command=display_results)
-scan_button.pack(side=tk.LEFT, padx=5)
-
-export_button = tk.Button(frame, text="Export to CSV", command=export_to_csv)
-export_button.pack(side=tk.LEFT, padx=5)
-
-status_label = tk.Label(root, text="Scanning network, please wait...", fg="blue")
-status_label.pack(pady=5)
-
-columns = ("IP", "MAC", "Name", "Vendor")
-tree = ttk.Treeview(root, columns=columns, show="headings")
-tree.heading("IP", text="IP Address")
-tree.heading("MAC", text="MAC Address")
-tree.heading("Name", text="Device Name")
-tree.heading("Vendor", text="Manufacturer")
-
-tree.pack(pady=10, fill="both", expand=True)
-
-# **Auto-run the scan when the file is opened**
-root.after(1000, display_results)  # Runs after 1 second
-
-root.mainloop()
-import scapy.all as scapy
-import tkinter as tk
-from tkinter import ttk, messagebox
-import socket
+import threading
 import os
-import re
-import csv
-import requests
+from datetime import datetime
+import webbrowser
+from tkinter import font as tkfont
 
-# Function to detect the local network range
-def get_local_network():
-    try:
-        if os.name == "nt":  # Windows
-            output = os.popen("ipconfig").read()
-            match = re.search(r"IPv4 Address[^\d]*(\d+\.\d+\.\d+)\.\d+", output)
-        else:  # Mac/Linux
-            output = os.popen("ifconfig" if os.system("ifconfig > /dev/null 2>&1") == 0 else "ip -4 addr").read()
-            match = re.search(r"inet (\d+\.\d+\.\d+)\.\d+", output)
+class ModernNetworkScanner:
+    def __init__(self, root):
+        self.root = root
+        self.setup_colors()
+        self.setup_window()
+        self.create_widgets()
+        self.setup_styles()
+        self.last_scan_time = None
 
-        if match:
-            return f"{match.group(1)}.1/24"  # Construct network range
-    except Exception as e:
-        print(f"ERROR: {e}")
-        return None
-    return None
+    def setup_colors(self):
+        """Modern color palette"""
+        self.primary_color = "#3498db"
+        self.secondary_color = "#2ecc71"
+        self.danger_color = "#e74c3c"
+        self.dark_color = "#2c3e50"
+        self.light_color = "#ecf0f1"
+        self.bg_color = "#f9f9f9"
 
-# Function to get manufacturer details from MAC address
-def get_mac_vendor(mac_address):
-    try:
-        url = f"https://api.macvendors.com/{mac_address}"
-        response = requests.get(url, timeout=3)
-        if response.status_code == 200:
-            return response.text
-    except:
-        pass
-    return "Unknown"
+    def setup_window(self):
+        """Window configuration"""
+        self.root.title("Network Ninja Pro")
+        self.root.geometry("1100x750")
+        self.root.minsize(900, 650)
+        self.root.configure(bg=self.bg_color)
+        
+        # Set window icon if available
+        try:
+            self.root.iconbitmap('icon.ico')
+        except:
+            pass
 
-# Function to scan the network
-def scan(ip_range):
-    devices = []
-    try:
-        arp_request = scapy.ARP(pdst=ip_range)
-        broadcast = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")
-        arp_request_broadcast = broadcast / arp_request
-        answered_list = scapy.srp(arp_request_broadcast, timeout=2, verbose=False)[0]
+    def setup_styles(self):
+        """Custom styling for widgets"""
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
+        
+        # Configure styles
+        self.style.configure('TFrame', background=self.bg_color)
+        self.style.configure('TLabel', background=self.bg_color, 
+                           font=('Segoe UI', 10))
+        self.style.configure('Header.TLabel', 
+                           background=self.dark_color, 
+                           foreground='white',
+                           font=('Segoe UI', 14, 'bold'),
+                           padding=10)
+        self.style.configure('Primary.TButton',
+                           background=self.primary_color,
+                           foreground='white',
+                           font=('Segoe UI', 10, 'bold'),
+                           borderwidth=0)
+        self.style.map('Primary.TButton',
+                      background=[('active', '#2980b9')])
+        
+        # Custom treeview style
+        self.style.configure('Treeview',
+                           font=('Segoe UI', 9),
+                           rowheight=28,
+                           background=self.light_color,
+                           fieldbackground=self.light_color)
+        self.style.configure('Treeview.Heading',
+                           font=('Segoe UI', 10, 'bold'),
+                           background=self.dark_color,
+                           foreground='white')
+        self.style.map('Treeview',
+                      background=[('selected', self.primary_color)])
 
-        for sent, received in answered_list:
-            try:
-                hostname = socket.gethostbyaddr(received.psrc)[0]  # Get device name
-            except socket.herror:
-                hostname = "Unknown"
+    def create_widgets(self):
+        """Create all GUI components"""
+        self.create_header()
+        self.create_control_panel()
+        self.create_results_panel()
+        self.create_status_bar()
 
-            vendor = get_mac_vendor(received.hwsrc)  # Get manufacturer
-            devices.append({"IP": received.psrc, "MAC": received.hwsrc, "Name": hostname, "Vendor": vendor})
-    except Exception as e:
-        print(f"ERROR: Failed to scan network. {e}")
-    return devices
+    def create_header(self):
+        """Application header"""
+        header_frame = ttk.Frame(self.root, style='Header.TFrame')
+        header_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Title with icon
+        title_font = tkfont.Font(family='Segoe UI', size=16, weight='bold')
+        title_label = tk.Label(header_frame,
+                             text="⚡ Network Ninja Pro",
+                             font=title_font,
+                             bg=self.dark_color,
+                             fg='white')
+        title_label.pack(side=tk.LEFT, padx=15)
+        
+        # Version label
+        version_label = ttk.Label(header_frame,
+                                text="v2.0",
+                                style='Header.TLabel')
+        version_label.pack(side=tk.RIGHT, padx=15)
 
-# Function to display the results in GUI
-def display_results():
-    network = get_local_network()
-    if not network:
-        status_label.config(text="ERROR: Network not detected!", fg="red")
-        return
+    def create_control_panel(self):
+        """Scan control panel"""
+        control_frame = ttk.Frame(self.root, padding=(15, 10))
+        control_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        # IP Range Entry
+        ip_frame = ttk.Frame(control_frame)
+        ip_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        ttk.Label(ip_frame, text="Network Range:").pack(side=tk.LEFT)
+        self.ip_range = tk.StringVar(value=self.get_default_ip_range())
+        ip_entry = ttk.Entry(ip_frame,
+                            textvariable=self.ip_range,
+                            font=('Segoe UI', 10),
+                            width=25)
+        ip_entry.pack(side=tk.LEFT, padx=10)
+        
+        # Action Buttons
+        btn_frame = ttk.Frame(control_frame)
+        btn_frame.pack(side=tk.RIGHT)
+        
+        self.scan_btn = ttk.Button(btn_frame,
+                                  text="Start Scan",
+                                  style='Primary.TButton',
+                                  command=self.start_scan_thread)
+        self.scan_btn.pack(side=tk.LEFT, padx=5)
+        
+        export_btn = ttk.Button(btn_frame,
+                               text="Export CSV",
+                               command=self.export_results)
+        export_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Stats Panel
+        stats_frame = ttk.LabelFrame(control_frame,
+                                   text=" Network Stats ",
+                                   padding=10)
+        stats_frame.pack(side=tk.RIGHT, padx=20)
+        
+        stats = [
+            ("Devices", "total", None),
+            ("Online", "online", self.secondary_color),
+            ("Offline", "offline", self.danger_color)
+        ]
+        
+        for text, key, color in stats:
+            frame = ttk.Frame(stats_frame)
+            frame.pack(side=tk.LEFT, padx=10)
+            
+            ttk.Label(frame, text=text+":", font=('Segoe UI', 9)).pack()
+            self.stats_labels[key] = ttk.Label(frame,
+                                             text="0",
+                                             font=('Segoe UI', 10, 'bold'),
+                                             foreground=color)
+            self.stats_labels[key].pack()
 
-    status_label.config(text=f"Scanning {network} ...", fg="blue")
-    root.update()
+    def create_results_panel(self):
+        """Results display area"""
+        results_frame = ttk.Frame(self.root)
+        results_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=(0, 10))
+        
+        # Treeview with scrollbars
+        tree_scroll_y = ttk.Scrollbar(results_frame)
+        tree_scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        tree_scroll_x = ttk.Scrollbar(results_frame, orient=tk.HORIZONTAL)
+        tree_scroll_x.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        self.tree = ttk.Treeview(
+            results_frame,
+            columns=("ip", "mac", "vendor", "hostname", "status", "last_seen"),
+            show="headings",
+            yscrollcommand=tree_scroll_y.set,
+            xscrollcommand=tree_scroll_x.set,
+            selectmode="extended",
+            style='Treeview'
+        )
+        
+        self.tree.pack(fill=tk.BOTH, expand=True)
+        
+        tree_scroll_y.config(command=self.tree.yview)
+        tree_scroll_x.config(command=self.tree.xview)
+        
+        # Configure columns
+        columns = [
+            ("IP Address", 150),
+            ("MAC Address", 150),
+            ("Vendor", 200),
+            ("Hostname", 200),
+            ("Status", 100),
+            ("Last Seen", 150)
+        ]
+        
+        for col, width in columns:
+            self.tree.heading(col.lower().replace(" ", "_"), text=col)
+            self.tree.column(col.lower().replace(" ", "_"), 
+                            width=width, 
+                            anchor=tk.CENTER)
+        
+        # Add right-click menu
+        self.setup_context_menu()
 
-    results = scan(network)
+    def create_status_bar(self):
+        """Status bar at bottom"""
+        self.status_frame = ttk.Frame(self.root, relief=tk.SUNKEN)
+        self.status_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        self.status_var = tk.StringVar(value="Ready to scan network...")
+        status_label = ttk.Label(self.status_frame,
+                               textvariable=self.status_var,
+                               anchor=tk.W,
+                               font=('Segoe UI', 9))
+        status_label.pack(fill=tk.X, padx=5)
+        
+        # Add scan time indicator
+        self.scan_time_var = tk.StringVar()
+        ttk.Label(self.status_frame,
+                 textvariable=self.scan_time_var,
+                 anchor=tk.E,
+                 font=('Segoe UI', 9)).pack(side=tk.RIGHT, padx=5)
 
-    for item in tree.get_children():
-        tree.delete(item)
+    def setup_context_menu(self):
+        """Right-click context menu"""
+        self.context_menu = tk.Menu(self.root, tearoff=0)
+        self.context_menu.add_command(
+            label="Copy IP",
+            command=self.copy_selected_ip
+        )
+        self.context_menu.add_command(
+            label="Ping Device",
+            command=self.ping_selected
+        )
+        self.context_menu.add_command(
+            label="Open in Browser",
+            command=self.open_in_browser
+        )
+        self.context_menu.add_separator()
+        self.context_menu.add_command(
+            label="Refresh Scan",
+            command=self.start_scan_thread
+        )
+        
+        self.tree.bind("<Button-3>", self.show_context_menu)
 
-    if not results:
-        status_label.config(text="No devices found!", fg="red")
-        return
+    # ... [Include all your existing network scanning methods here] ...
 
-    for device in results:
-        tree.insert("", "end", values=(device["IP"], device["MAC"], device["Name"], device["Vendor"]))
-
-    status_label.config(text="Scan Complete!", fg="green")
-
-# Function to export results to CSV
-def export_to_csv():
-    results = []
-    for item in tree.get_children():
-        results.append(tree.item(item)["values"])
-
-    if not results:
-        messagebox.showwarning("No Data", "No scan results to save!")
-        return
-
-    with open("network_scan_results.csv", "w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["IP Address", "MAC Address", "Device Name", "Vendor"])
-        writer.writerows(results)
-
-    messagebox.showinfo("Export Successful", "Scan results saved to 'network_scan_results.csv'!")
-
-# GUI Setup
-root = tk.Tk()
-root.title("Advanced Network Scanner")
-root.geometry("600x400")
-
-frame = tk.Frame(root)
-frame.pack(pady=10)
-
-scan_button = tk.Button(frame, text="Scan My Network", command=display_results)
-scan_button.pack(side=tk.LEFT, padx=5)
-
-export_button = tk.Button(frame, text="Export to CSV", command=export_to_csv)
-export_button.pack(side=tk.LEFT, padx=5)
-
-status_label = tk.Label(root, text="Scanning network, please wait...", fg="blue")
-status_label.pack(pady=5)
-
-columns = ("IP", "MAC", "Name", "Vendor")
-tree = ttk.Treeview(root, columns=columns, show="headings")
-tree.heading("IP", text="IP Address")
-tree.heading("MAC", text="MAC Address")
-tree.heading("Name", text="Device Name")
-tree.heading("Vendor", text="Manufacturer")
-
-tree.pack(pady=10, fill="both", expand=True)
-
-# **Auto-run the scan when the file is opened**
-root.after(1000, display_results)  # Runs after 1 second
-
-root.mainloop()
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = ModernNetworkScanner(root)
+    root.mainloop()
